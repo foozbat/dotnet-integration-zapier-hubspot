@@ -1,9 +1,11 @@
 using dotenv.net; 
 using Microsoft.OpenApi;
+using Microsoft.EntityFrameworkCore;
 
 DotEnv.Load();
 var env = DotEnv.Read();
 string webhookUrl = env["ZAPIER_WEBHOOK_URL"];
+var connectionString = env["SQL_SERVER_CONNECTION_STRING"];
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,10 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Dotnet Integrations API", Description = "An Amazing Dotnet Integrations API", Version = "v1" });
 });
+
+// connect to azure sql database using entra authentication
+builder.Services.AddDbContext<AzureSQLDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
 var app = builder.Build();
 
@@ -44,15 +50,10 @@ app.MapGet("/weatherforecast", () =>
 })
 .WithName("GetWeatherForecast");
 
-app.MapGet("/leads", () =>
-{
-    // Placeholder for lead retrieval logic
-    
-    return Results.Ok(new[] { new { Id = 1, Name = "Sample Lead" } });
-})
+app.MapGet("/leads", async (AzureSQLDbContext db) => await db.Leads.ToListAsync())
 .WithName("GetLeads");
 
-app.MapPost("/leads", async (Lead lead) =>
+app.MapPost("/leads", async (AzureSQLDbContext db,Lead lead) =>
 {
     // validation
     if (string.IsNullOrEmpty(lead.Name) || string.IsNullOrEmpty(lead.Email) || string.IsNullOrEmpty(lead.Phone))
@@ -71,6 +72,10 @@ app.MapPost("/leads", async (Lead lead) =>
     // do something with the lead, e.g., save to database
     lead.CreatedAt = DateTime.UtcNow;
     lead.UpdatedAt = DateTime.UtcNow;
+
+    // save to db
+    db.Leads.Add(lead);
+    await db.SaveChangesAsync();
 
     // send new lead to Zapier
     var zapier  = new ZapierWebhook { WebhookUrl = webhookUrl };
