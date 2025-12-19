@@ -1,0 +1,6 @@
+@dotnet_integration_zapier_hubspot_HostAddress = http://localhost:5053
+
+GET {{dotnet_integration_zapier_hubspot_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
