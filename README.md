@@ -17,14 +17,17 @@ When a user signs up via a .NET API endpoint:
 
 ## Architecture Overview
 
+```
 Client (Postman / Swagger)
 ↓
 ASP.NET Core API
-↓
-Azure Logic Apps
-├── HubSpot CRM
-└── Zapier
-└── Slack / Email
+├── Save to Azure SQL DB
+└── Azure Logic App
+     ├── HubSpot CRM
+     └── Zapier
+         └── Email via Sendgrid
+         └── SMS via Twilio
+```
 
 ---
 
