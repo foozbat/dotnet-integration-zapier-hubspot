@@ -46,9 +46,9 @@ POST /api/signup
 Content-Type: application/json
 
 {
-  "email": "demo.user@acme.com",
   "firstName": "Demo",
   "lastName": "User",
-  "company": "Acme Ltd"
+  "email": "demo.user@acme.com",
+  "phone": "123-456-7890"
 }
 ```
