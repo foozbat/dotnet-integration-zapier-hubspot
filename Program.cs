@@ -18,7 +18,11 @@ builder.Services.AddSwaggerGen(c =>
 
 // connect to azure sql database using entra authentication
 builder.Services.AddDbContext<AzureSQLDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sqlOptions => 
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
 
 var app = builder.Build();
 
@@ -31,34 +35,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
-app.MapGet("/leads", async (AzureSQLDbContext db) => await db.Leads.ToListAsync())
-.WithName("GetLeads");
-
-app.MapPost("/leads", async (AzureSQLDbContext db,Lead lead) =>
+app.MapPost("/api/signup", async (AzureSQLDbContext db, Lead lead, ILogger<Program> logger) =>
 {
     // validation
-    if (string.IsNullOrEmpty(lead.Name) || string.IsNullOrEmpty(lead.Email) || string.IsNullOrEmpty(lead.Phone))
+    if (string.IsNullOrEmpty(lead.FirstName) || string.IsNullOrEmpty(lead.LastName) || string.IsNullOrEmpty(lead.Email) || string.IsNullOrEmpty(lead.Phone))
     {
-        return Results.BadRequest(new { Message = "Name, Email, and Phone are required." });
+        return Results.BadRequest(new { Message = "First Name, Last Name, Email, and Phone are required." });
     }
 
     // check for valid email
@@ -69,28 +51,31 @@ app.MapPost("/leads", async (AzureSQLDbContext db,Lead lead) =>
         return Results.BadRequest(new { Message = "Invalid email format." });
     }
 
-    // do something with the lead, e.g., save to database
     lead.CreatedAt = DateTime.UtcNow;
     lead.UpdatedAt = DateTime.UtcNow;
+
+    // add correlation id to track request across services
+    lead.CorrelationId = Guid.NewGuid().ToString();
 
     // save to db
     db.Leads.Add(lead);
     await db.SaveChangesAsync();
 
-    // send new lead to Zapier
-    var zapier  = new ZapierWebhook { WebhookUrl = webhookUrl };
-    var success = await zapier.Send(lead);
+    // send webhook to Azure Logic Apps in the background
+    var webhook = new JsonWebhook
+    {
+        WebhookUrl = webhookUrl,
+        CorrelationId = lead.CorrelationId,
+        Timeout = TimeSpan.FromSeconds(30),
+        Logger = logger
+    };
+    _ = Task.Run(async () => await webhook.SendAsync(lead));
 
-    // send new lead to Hubspot
-
-
-    return Results.Ok(new { Message = "Lead created successfully" });
+    return Results.Ok(new { Message = "Signup successful." });
 })
-.WithName("CreateLead");
+.WithName("SignUp");
+
+app.MapGet("/api/leads", async (AzureSQLDbContext db) => await db.Leads.ToListAsync())
+.WithName("GetLeads");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
