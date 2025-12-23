@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 DotEnv.Load();
 var env = DotEnv.Read();
-string webhookUrl = env["ZAPIER_WEBHOOK_URL"];
+string webhookUrl = env["AZURE_LOGIC_APP_URL"];
 var connectionString = env["SQL_SERVER_CONNECTION_STRING"];
 
 var builder = WebApplication.CreateBuilder(args);
