@@ -1,4 +1,4 @@
-[![CI](https://github.com/foozbat/dotnet-integrations-demo/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/foozbat/dotnet-integrations-demo/actions/workflows/ci.yml)
+[![CI](https://github.com/foozbat/dotnet-integrations-demo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/foozbat/dotnet-integrations-demo/actions/workflows/ci.yml)
 
 # .NET + Azure Logic Apps + HubSpot + Zapier Demo
 
